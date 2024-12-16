@@ -9,7 +9,7 @@ import torch
 from llama_3_inference import Llama3Inference
 from sae import load_sae_model
 from utils.cuda_utils import set_torch_seed_for_inference
-
+dropouts = []
 
 class Llama3GradioInterface:
     def __init__(
@@ -52,6 +52,7 @@ class Llama3GradioInterface:
         max_new_tokens: int,
         temperature: float,
         top_p: float,
+        dropout: int,
         seed: int,
         sae_h_bias_index: int | None = None,
         sae_h_bias_value: float | None = None,
@@ -80,6 +81,7 @@ class Llama3GradioInterface:
 
         # Set SAE h_bias if provided
         if self.sae_model:
+            self.sae_model.activation_mask = dropouts[dropout]
             if sae_h_bias_index >= 0 and sae_h_bias_value:
                 logging.info("Setting SAE h_bias...")
                 h_bias = torch.zeros(self.sae_model.n_latents)
@@ -138,6 +140,13 @@ class Llama3GradioInterface:
                 step=0.1,
                 label="Top-p",
             ),
+            gr.Slider(
+                minimum=0,
+                maximum=10,
+                value=0,
+                step=1,
+                label="Dropout uninterpreted features",
+            ),
             gr.Number(
                 label="Seed (0 is random)",
                 value=0,
@@ -190,6 +199,11 @@ def main():
         format="[%(asctime)s] [%(levelname)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+
+    global dropouts
+    for x in range(0, 101, 10):
+        d = torch.load(f"masks/mask_{x}").to(torch.device("cuda"))
+        dropouts.append(d)
 
     # Parse arguments and set up paths
     args = parse_arguments()

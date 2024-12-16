@@ -26,6 +26,9 @@ class RMSNorm(torch.nn.Module):
 
     def _norm(self, x):
         return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
+    
+    def get_norm(self, x):
+        return torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
 
     def forward(self, x):
         output = self._norm(x.float()).type_as(x)
@@ -258,6 +261,7 @@ class TransformerBlock(nn.Module):
         mask: Optional[torch.Tensor],
     ):
         x_normalized = self.attention_norm(x)
+
         # If capturing activations keep a copy on GPU. Don't move to CPU as of yet to minimize data transfer
         # and therefore performance impact
         if self.capture_activation:
@@ -266,7 +270,7 @@ class TransformerBlock(nn.Module):
         if self.sae_forward_fn:
             x_normalized = self.sae_forward_fn(x_normalized)
         # Continue with the default rest of a the Llama 3 transformer block of applying attention and feed forwarding
-        h = x + self.attention(x_normalized, start_pos, freqs_cis, mask)
+        h = ((x_normalized / self.attention_norm.weight) / self.attention_norm.get_norm(x)) + self.attention(x_normalized, start_pos, freqs_cis, mask)
         out = h + self.feed_forward(self.ffn_norm(h))
         return out
 

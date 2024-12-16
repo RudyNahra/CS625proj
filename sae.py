@@ -14,6 +14,7 @@ class TopKSparseAutoencoder(nn.Module):
         b_pre: torch.Tensor,
         dtype: torch.dtype,
         normalize_eps: float = 1e-6,
+        activation_mask: torch.Tensor = None,
     ):
         """"""
         super().__init__()
@@ -23,6 +24,7 @@ class TopKSparseAutoencoder(nn.Module):
         self.dtype = dtype
         self.normalize_eps = normalize_eps
         self.h_bias = None
+        self.activation_mask = activation_mask
 
         # Initialize training data mean (or median) as shared trainable pre-bias Parameter for encoder and decoder
         self.b_pre = nn.Parameter(b_pre.to(dtype), requires_grad=True)
@@ -116,6 +118,8 @@ class TopKSparseAutoencoder(nn.Module):
     def decode_latent(self, h: torch.Tensor, k: int) -> tuple[torch.Tensor, torch.Tensor]:
         """"""
         # Apply TopK activation, Relu to guarantee positive topk vals and then build sparse representation
+        if self.activation_mask is not None:
+            h = h * self.activation_mask
         topk_values, topk_indices = torch.topk(h, k=k, dim=-1)
         topk_values = torch.relu(topk_values)
         h_sparse = torch.zeros_like(h).scatter_(1, topk_indices, topk_values)
@@ -141,6 +145,7 @@ def load_sae_model(
     sae_normalization_eps: float,
     device: torch.device,
     dtype: torch.dtype,
+    activation_mask: torch.Tensor = None,
 ) -> TopKSparseAutoencoder:
     """"""
     logging.info(f"Loading TopK SAE model weights and config from: {model_path}")
@@ -161,6 +166,7 @@ def load_sae_model(
         b_pre=b_pre,
         dtype=dtype,
         normalize_eps=sae_normalization_eps,
+        activation_mask=activation_mask
     )
     model.load_state_dict(state_dict)
     del state_dict

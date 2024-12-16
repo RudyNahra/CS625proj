@@ -99,7 +99,7 @@ def main() -> None:
     # Prepare batch for text completion
     logging.info("Generating sample text completions...")
     text_prompts = [
-        "Once upon a time, in a land far, far away",
+        "2x + 5y = 20",
         "The quick brown fox jumps over",
         "In the year 2050, technology had advanced to the point where",
         "The secret to happiness is",
